@@ -1,0 +1,61 @@
+---
+title: "hw 3"
+author: "cathy"
+date: "2024-10-13"
+output: github_document
+---
+
+Load the package that needed for this hw.
+
+```{r}
+library(tidyverse)
+```
+
+
+
+
+
+
+## Problem 2
+
+import and clean "nhanes_accel" data
+
+```{r}
+ covar_df =  
+   read_csv("data/nhanes_covar.csv", 
+             na = c("NA",".",""),
+             skip = 4
+            ) |> 
+   janitor::clean_names()
+  
+ covar_df_clean =
+   covar_df |> 
+   filter(age >= 21, 
+          !is.na(sex), !is.na(age), !is.na(bmi), !is.na(education)
+          ) |> 
+   mutate(
+     sex = factor(sex, levels = c(1, 2), labels = c("Male", "Female")),
+     education = factor(education, levels = c(1, 2, 3), labels = c("Less than High School", "High School Equivalent", "More than High School"))
+  )
+```
+
+Creat table and visualization variable
+
+```{r}
+edu_bysex_table =
+  covar_df_clean |> 
+  group_by(sex, education) |> 
+  summarise(count = n(), .groups = 'drop')
+```
+
+
+
+
+
+
+
+
+
+
+
+
