@@ -158,10 +158,41 @@ print(time_course_plot)
 Describe:
 
 
+## Problem 3
 
+import and clean 4 dataset
+ combine all the 4 datasets
+```{r}
+ jan20_df = 
+   read_csv("data/citibike/Jan 2020 Citi.csv", na = c("NA",".","")) |> 
+   janitor::clean_names()
 
+ jan24_df = 
+   read_csv("data/citibike/Jan 2024 Citi.csv", na = c("NA",".","")) |> 
+   janitor::clean_names()
 
+ july20_df = 
+   read_csv("data/citibike/July 2020 Citi.csv", na = c("NA",".","")) |> 
+   janitor::clean_names()
 
+ july24_df = 
+   read_csv("data/citibike/July 2024 Citi.csv", na = c("NA",".","")) |> 
+   janitor::clean_names()
+ 
+ citibike_df = 
+   bind_rows(
+   jan20_df |> 
+     mutate(month = "January", year = 2020),
+   jan24_df |>
+     mutate(month = "January", year = 2024),
+   july20_df |> 
+     mutate(month = "July", year = 2020),
+   july24_df |> 
+     mutate(month = "July", year = 2024)
+   )
+```
+
+Discribe: 
 
 
 
