@@ -10,6 +10,7 @@ Load the package that needed for this hw.
 ```{r, echo = FALSE}
 library(tidyverse)
 library(ggplot2)
+library(knitr)
 ```
 
 
@@ -194,6 +195,64 @@ import and clean 4 dataset
 
 Discribe: 
 
+
+Produce a reader-friendly table showing the total number of rides in each combination of year and month separating casual riders and Citi Bike members.
+```{r}
+ ride_counts =
+   citibike_df |> 
+   group_by(year, month, member_casual) |> 
+   summarise(total_rides = n()) |> 
+   pivot_wider(names_from = member_casual, values_from = total_rides) |>
+   kable()
+
+print(ride_counts)
+```
+
+Comment: from the result, we know that all of the member riders have a higher frequency than the casual riders. The number of total rides for members is increasing from 2020 Jan to 2024 July. For casual riders, the total rides in 2020 kept increasing, but in 2024 Jan decreased then in 2024 July increased again.
+  
+  
+Make a table showing the 5 most popular starting stations for July 2024; include the number of rides originating from these stations.
+```{r}
+ top_stations_july24 =
+   july24_df |> 
+   group_by(start_station_name) |> 
+   summarise(total_rides = n(), .groups = "drop") |> 
+   arrange(desc(total_rides)) |> 
+   slice_head(n = 5) |> 
+   kable()
+
+ print(top_stations_july24)
+```
+
+
+Make a plot to investigate the effects of day of the week, month, and year on median ride duration. 
+
+```{r}
+ median_duration_df =
+   citibike_df |> 
+   mutate(weekdays = factor(weekdays, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) |>
+   group_by(year, month, weekdays) |>
+   summarize(median_duration = median(duration), .groups = "drop")
+  
+ duration_plot =
+   median_duration_df |> 
+   ggplot(aes(x = weekdays, y = median_duration, group = month, color = month)) +
+   geom_line() + 
+   facet_grid(. ~ year) + 
+   labs(
+     title = "Median Ride Duration by Day of the Week, Month, and Year",
+     x = "Day of the Week",
+     y = "Median Duration (in minutes)") +
+   theme_minimal() +
+   theme(axis.text.x = element_text(angle = 45), 
+         legend.position = "bottom") 
+
+ duration_plot
+```
+
+Comment: Compare to weekday, the median ride duration is longer on weekends in 2020. For each year, July has the longer the median ride duration than January.
+In 2024, the median ride duration on Sunday has a drop compare to Saturday.
+2024 has a shorter median ride duration than 2020 in both January and July.
 
 
 
