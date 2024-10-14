@@ -244,7 +244,7 @@ long_accel_df =
  time_course_plot =
   long_accel_df |> 
    ggplot(aes(x = hour, y = activity_level, color = sex)) +
-   geom_line(alpha = 0.1, size = 0.05) + 
+   geom_line(alpha = 0.1) + 
    geom_smooth(se = FALSE) + 
    facet_wrap(~ education) + 
    labs(
@@ -305,9 +305,9 @@ Produce a reader-friendly table showing the total number of rides in each combin
    group_by(year, month, member_casual) |> 
    summarise(total_rides = n()) |> 
    pivot_wider(names_from = member_casual, values_from = total_rides) |>
-   kable()
+   knitr::kable()
 
-print(ride_counts)
+ ride_counts
 ```
 
 Comment: from the result, we know that all of the member riders have a higher frequency than the casual riders. The number of total rides for members is increasing from 2020 Jan to 2024 July. For casual riders, the total rides in 2020 kept increasing, but in 2024 Jan decreased then in 2024 July increased again.
@@ -322,9 +322,9 @@ The table in the following shows the the 5 most popular starting stations for Ju
    summarise(total_rides = n(), .groups = "drop") |> 
    arrange(desc(total_rides)) |> 
    slice_head(n = 5) |> 
-   kable()
+   knitr::kable()
 
- print(top_stations_july24)
+ top_stations_july24
 ```
 
 
