@@ -20,7 +20,7 @@ library(knitr)
 
 ## Problem 2
 
-import and clean "nhanes_covar" data
+import and clean "nhanes_covar" and "nhanes_accel" data
 
 ```{r}
  covar_df =  
@@ -28,97 +28,104 @@ import and clean "nhanes_covar" data
              na = c("NA",".",""),
              skip = 4
             ) |> 
-   janitor::clean_names()
-```
+   janitor::clean_names() |> 
+   filter(age >= 21) |> 
+   mutate(
+    sex = factor(
+      sex, levels = c(1, 2), 
+           labels = c("Male", "Female")),
+    education = factor(
+      education, levels = c(1, 2, 3), 
+                 labels = c("Less than High School", "High School Equivalent", "More than High School"))
+  ) |> 
+  drop_na()
 
-import and clean "nhanes_accel" data
-create a total activity variable for each participant
-
-```{r}
  accel_df =  
    read_csv("data/nhanes_accel.csv", 
              na = c("NA",".","")) |> 
-   janitor::clean_names() |>
-   mutate(total_activity = 
-            rowSums(across(starts_with("min")), na.rm = TRUE)) |> 
-   relocate(total_activity)
+   janitor::clean_names()
 ```
 
 
-Merge the 2 dataset into 1
+Merge the 2 dataset into one "merged_df"
 ```{r}
  merged_df =
    covar_df|> 
-   left_join(accel_df, by = "seqn") |> 
-   mutate(
-    sex = factor(sex, levels = c(1, 2), labels = c("Male", "Female")),
-    education = factor(education, levels = c(1, 2, 3), labels = c("Less than High School", "High School Equivalent", "More than High School"))
-  ) |> 
-   filter(age >= 21, !is.na(sex), !is.na(bmi), !is.na(education)) |> 
-   relocate(seqn, sex, age, bmi, education, total_activity)
-
+   left_join(accel_df, by = "seqn")
 ```
 
-
-Create a visualization of the age distributions for men and women in each education category
+Produce a reader-friendly table for the number of men and women in each education category
 
 ```{r}
-edu_bysex_table =
+ edu_table =
+   merged_df |> 
+   group_by(sex, education) |> 
+   summarise(count = n(), .groups = 'drop') |> 
+   pivot_wider(
+     names_from = sex,
+     values_from = count) |> 
+   knitr::kable() 
+
+ edu_table 
+```
+
+Comment: for the "Less than High School" and "More than High School" categories, the numbers are almost balanced between males and females.  
+There are more males than females with education levels equivalent to high school.
+
+
+Create a visualization of the age distributions for men and women in each education category. 
+
+```{r}
+edu_plot =
   merged_df |> 
-  group_by(sex, education) |> 
-  summarise(count = n(), .groups = 'drop')
-```
+  ggplot(aes(x = age, fill = sex)) +
+  geom_density(alpha = 0.5) +
+  facet_grid(. ~ education) +
+  labs(
+    title = "Age Distribution by Sex and Education",
+    x = "Age", 
+    y = "Education")
 
-create histogram and box plot
-```{r}
-edu_bysex_plot =
-  ggplot(merged_df, aes(x = age, fill = sex)) +
-  geom_histogram(position = "dodge", bins = 10) +
-  facet_grid(sex ~ education) +
-  labs(title = "Age Distribution by Sex and Education",
-       x = "Age",
-       y = "Count") +
-  theme_minimal()
-
-print(edu_bysex_plot)
-```
-
-```{r}
-age_boxplot = ggplot(merged_df, aes(x = education, y = age, fill = sex)) +
-  geom_boxplot() +
-  facet_wrap(~ sex) +
-  labs(title = "Age Distribution by Sex and Education",
-       x = "Education",
-       y = "Age") +
-  theme_minimal()
-
-print(age_boxplot)
+print(edu_plot)
 ```
 
 Comment:
-
+1. For Less than High School: The distribution shows peaks around middle age for both males and females, with males having a slightly earlier peak around age 40, and females peaking slightly later.
+2. For High School Equivalent: The peak for males is around the late 30s, while females show a broader distribution with a peak around the early 40s.
+3. For More than High School: Both genders show a significant peak in their early 30s, and the distribution tails off more gradually as age increases.
 
 
 Plot these total activities (y-axis) against age (x-axis)
 compare men to women and have separate panels for each education level
 
 ```{r}
+ total_activity_df = 
+   merged_df |>
+   mutate(
+     total_activity = 
+       rowSums(across(starts_with("min")), na.rm = TRUE)) |>
+  select(seqn, sex, age, bmi, education, total_activity)
+
+
  activity_plot =
-   ggplot(merged_df, aes(x = age, y = total_activity, color = sex)) +
+   total_activity_df |> 
+   ggplot(aes(x = age, y = total_activity, color = sex)) +
    geom_point(alpha = 0.5) +  
    geom_smooth(se = FALSE) + 
-   facet_wrap(~ education, scales = "free_y") + 
-   labs(title = "Total Daily Activity by Age, Sex, and Education Level",
-        x = "Age",
-        y = "Total Activity",
-        color = "Sex") +
+   facet_wrap(~ education) + 
+   labs(
+     title = "Total Daily Activity by Age, Sex, and Education Level",
+     x = "Age",
+     y = "Total Activity",
+     color = "Sex") +
   theme_minimal() + 
   theme(legend.position = "bottom")
 
 print(activity_plot)
 ```
 
-Comment:
+Comment: Across all education levels, the total daily activity tends to peak in around 40-60 years and gradually declines as age increases.
+ Males generally show slightly higher activity levels compared to females in the same age and education group.
 
 
 Make a three-panel plot that shows the 24-hour activity time 
@@ -133,31 +140,33 @@ long_accel_df =
     names_prefix = "min",
     values_to = "activity_level"
   ) |> 
+  group_by(minute, sex, education) |> 
   mutate(
-    minute = as.numeric(sub("min", "", minute)) / 1440 * 24 
+    hour = as.numeric(sub("min", "", minute)) / 60 
   )
 ```
 
 
 ```{r}
  time_course_plot =
-   ggplot(long_accel_df, aes(x = minute, y = activity_level, color = sex)) +
-   geom_line(alpha = 0.3, size = 0.5) + 
-   geom_smooth(se = FALSE, span = 0.2) + 
-   facet_wrap(~ education, scales = "free_y") + 
+  long_accel_df |> 
+   ggplot(aes(x = hour, y = activity_level, color = sex)) +
+   geom_line(alpha = 0.1, size = 0.05) + 
+   geom_smooth(se = FALSE) + 
+   facet_wrap(~ education) + 
    labs(
         title = "24-Hour Activity Time Course by Education Level and Sex",
         x = "Time of Day (hours)",
         y = "Activity Level",
         color = "Sex") +
-   theme_minimal() +  
-   theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+   theme_minimal()
 
 print(time_course_plot)
 ```
 
 Describe:
-
+1. From the plot, we can see that the overall activity level is low during the early morning hours, and during the day it increases, at the middle of the day comes to a peak, and gradually decreases towards the evening and night.
+2. For all education levels, males and females show similar activity trends throughout the whole day.
 
 ## Problem 3
 
@@ -193,7 +202,7 @@ import and clean 4 dataset
    )
 ```
 
-Discribe: 
+Discribe: first I imported these 4 datasets with 2020 and 2024 January and July data, then I combined these 4 datasets with Month and Year variables for each. The final "citibike_df" contains 99485 observations and 9 variables, that provide  ride_id, rideable_type, weekdays, duration, start_station_name, end_station_name, member_casual, month, and year.
 
 
 Produce a reader-friendly table showing the total number of rides in each combination of year and month separating casual riders and Citi Bike members.
@@ -211,7 +220,8 @@ print(ride_counts)
 Comment: from the result, we know that all of the member riders have a higher frequency than the casual riders. The number of total rides for members is increasing from 2020 Jan to 2024 July. For casual riders, the total rides in 2020 kept increasing, but in 2024 Jan decreased then in 2024 July increased again.
   
   
-Make a table showing the 5 most popular starting stations for July 2024; include the number of rides originating from these stations.
+Make a table showing the 5 most popular starting stations for July 2024; include the number of rides originating from these stations. 
+The table in the following shows the the 5 most popular starting stations for July 2024.
 ```{r}
  top_stations_july24 =
    july24_df |> 
@@ -250,9 +260,10 @@ Make a plot to investigate the effects of day of the week, month, and year on me
  duration_plot
 ```
 
-Comment: Compare to weekday, the median ride duration is longer on weekends in 2020. For each year, July has the longer the median ride duration than January.
-In 2024, the median ride duration on Sunday has a drop compare to Saturday.
-2024 has a shorter median ride duration than 2020 in both January and July.
+Comment: 
+1. Compared to weekdays, the median ride duration is longer on weekends in 2020. For each year, July has a longer median ride duration than January.
+2. In 2024, the median ride duration on Sunday drops compared to Saturday.
+3. 2024 has a shorter median ride duration than 2020 in both January and July.
 
 
 For data in 2024, make a figure that shows the impact of month, membership status, and bike type on the distribution of ride duration
@@ -285,8 +296,9 @@ Make another density plot to focus more closely on the relevant parts of the dat
   scale_x_continuous(limits = c(0, 100)) 
 ```
 
-Comment: Both class and electric bikes show a peak that usually in ride duration within 30 minutes. This means that most rides, regardless of bike type or user membership, are relatively short.
-Electric bikes tend to have a slightly longer ride duration compared to classic bike.
-Members tend to use classic bikes more consistently, with their distribution being sharper and more centered around shorter durations.
+Comment: 
+1. Both class and electric bikes show a peak that usually in ride duration within 30 minutes. This means that most rides, regardless of bike type or user membership, are relatively short.
+2. Electric bikes tend to have a slightly longer ride duration compared to classic bikes.
+3. Members tend to use classic bikes more consistently, with their distribution being sharper and more centered around shorter durations.
 
 
